@@ -1578,21 +1578,30 @@ class CompareTable extends React.Component {
     const { data, otherData } = this.props;
     if (!data) return null;
 
-    return h("table", { className: "compare-table" },
-      h("tbody", {},
-        Object.entries(data).map(([field, value]) => {
-          if (field === "attributes" || typeof value === 'object') return null;
-          const otherValue = otherData?.[field];
-          const isDifferent = String(value) !== String(otherValue);
+    const sourceObject = data.attributes?.type;
+    const targetObject = otherData?.attributes?.type;
 
-          return h("tr", {
-            key: field,
-            className: isDifferent ? "diff-highlight" : ""
-          },
-            h("th", {}, field),
-            h("td", {}, String(value))
-          );
-        })
+    return h("div", { className: "compare-side" },
+      h("div", { className: "compare-side-header" },
+        h("h3", {}, sourceObject),
+        h("div", { className: "compare-side-id" }, data.Id)
+      ),
+      h("table", { className: "compare-table" },
+        h("tbody", {},
+          Object.entries(data).map(([field, value]) => {
+            if (field === "attributes" || typeof value === 'object') return null;
+            const otherValue = otherData?.[field];
+            const isDifferent = String(value) !== String(otherValue);
+
+            return h("tr", {
+              key: field,
+              className: isDifferent ? "diff-highlight" : ""
+            },
+              h("th", {}, field),
+              h("td", {}, String(value))
+            );
+          })
+        )
       )
     );
   }

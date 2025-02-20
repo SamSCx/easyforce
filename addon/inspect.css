@@ -647,3 +647,35 @@ th[tabindex] {
   margin-bottom: 16px;
   font-size: 0.9em;
 }
+
+.compare-side-header {
+  margin-bottom: 16px;
+}
+
+.compare-side-header h3 {
+  margin: 0;
+  color: #16325c;
+  font-size: 1.2em;
+  font-weight: 500;
+}
+
+.compare-side-id {
+  color: #54698d;
+  font-size: 0.9em;
+  margin-top: 4px;
+  font-family: monospace;
+}
+
+/* Update existing styles */
+.compare-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  padding: 24px;
+}
+
+.compare-side {
+  background: rgba(0, 0, 0, 0.02);
+  border-radius: 8px;
+  padding: 24px;
+}
