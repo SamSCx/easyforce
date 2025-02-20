@@ -22,7 +22,6 @@ function init({sfHost, inDevConsole, inLightning, inInspector}) {
   let addonVersion = chrome.runtime.getManifest().version;
 
   sfConn.getSession(sfHost).then(() => {
-
     ReactDOM.render(h(App, {
       sfHost,
       inDevConsole,
@@ -30,7 +29,6 @@ function init({sfHost, inDevConsole, inLightning, inInspector}) {
       inInspector,
       addonVersion,
     }), document.getElementById("root"));
-
   });
 }
 
@@ -39,7 +37,8 @@ class App extends React.PureComponent {
     super(props);
     this.state = {
       isInSetup: false,
-      contextUrl: null
+      contextUrl: null,
+      activeAspect: "objects",
     };
     this.onContextUrlMessage = this.onContextUrlMessage.bind(this);
     this.onShortcutKey = this.onShortcutKey.bind(this);
@@ -89,14 +88,24 @@ class App extends React.PureComponent {
     //TODO: Add shortcut for "u to go to user aspect"
   }
   componentDidMount() {
+    // Add escape key handler
+    this.escFunction = (event) => {
+      if(event.key === "Escape") {
+        closePopup();
+      }
+    };
+    document.addEventListener("keydown", this.escFunction, false);
+    
     addEventListener("message", this.onContextUrlMessage);
     addEventListener("keydown", this.onShortcutKey);
     parent.postMessage({insextLoaded: true}, "*");
   }
   componentWillUnmount() {
+    document.removeEventListener("keydown", this.escFunction, false);
     removeEventListener("message", this.onContextUrlMessage);
     removeEventListener("keydown", this.onShortcutKey);
   }
+
   render() {
     let {
       sfHost,
@@ -105,50 +114,70 @@ class App extends React.PureComponent {
       inInspector,
       addonVersion,
     } = this.props;
-    let {isInSetup, contextUrl} = this.state;
+    let {isInSetup, contextUrl, activeAspect} = this.state;
+
     let hostArg = new URLSearchParams();
     hostArg.set("host", sfHost);
     let linkTarget = inDevConsole ? "_blank" : "_top";
-    return (
-      h("div", {},
-        h("div", {className: "header"},
-          h("div", {className: "header-icon"},
-            h("svg", {viewBox: "0 0 24 24"},
-              h("path", {d: `
-                M11 9c-.5 0-1-.5-1-1s.5-1 1-1 1 .5 1 1-.5 1-1 1z
-                m1 5.8c0 .2-.1.3-.3.3h-1.4c-.2 0-.3-.1-.3-.3v-4.6c0-.2.1-.3.3-.3h1.4c.2.0.3.1.3.3z
-                M11 3.8c-4 0-7.2 3.2-7.2 7.2s3.2 7.2 7.2 7.2s7.2-3.2 7.2-7.2s-3.2-7.2-7.2-7.2z
-                m0 12.5c-2.9 0-5.3-2.4-5.3-5.3s2.4-5.3 5.3-5.3s5.3 2.4 5.3 5.3-2.4 5.3-5.3 5.3z
-                M 17.6 15.9c-.2-.2-.3-.2-.5 0l-1.4 1.4c-.2.2-.2.3 0 .5l4 4c.2.2.3.2.5 0l1.4-1.4c.2-.2.2-.3 0-.5z
-                `})
-            )
+
+    return h("div", {className: "popup-overlay", onClick: e => {
+      if (e.target.className === "popup-overlay") {
+        closePopup();
+      }
+    }},
+      h("div", {className: "popup-container"},
+        h("div", {className: "popup-header"},
+          h("div", {className: "search-box"},
+            h(AllDataBox, {
+              ref: "showAllDataBox", 
+              sfHost, 
+              showDetailsSupported: !inLightning && !inInspector, 
+              linkTarget, 
+              contextUrl,
+              onAspectChange: (aspect) => this.setState({ activeAspect: aspect })
+            })
           ),
-          "Salesforce inspector"
+          this.state.activeAspect !== "users" && h(CompareDataBox, {
+            sfHost,
+            linkTarget,
+            contextUrl
+          })
         ),
-        h("div", {className: "main"},
-          h(AllDataBox, {ref: "showAllDataBox", sfHost, showDetailsSupported: !inLightning && !inInspector, linkTarget, contextUrl}),
-          h("div", {className: "global-box"},
-            h("a", {ref: "dataExportBtn", href: "data-export.html?" + hostArg, target: linkTarget, className: "button"}, "Data ", h("u", {}, "E"), "xport"),
-            h("a", {ref: "dataImportBtn", href: "data-import.html?" + hostArg, target: linkTarget, className: "button"}, "Data ", h("u", {}, "I"), "mport"),
-            h("a", {ref: "limitsBtn", href: "limits.html?" + hostArg, target: linkTarget, className: "button"}, "Org ", h("u", {}, "L"), "imits"),
-            // Advanded features should be put below this line, and the layout adjusted so they are below the fold
-            h("a", {ref: "metaRetrieveBtn", href: "metadata-retrieve.html?" + hostArg, target: linkTarget, className: "button"}, h("u", {}, "D"), "ownload Metadata"),
-            h("a", {ref: "apiExploreBtn", href: "explore-api.html?" + hostArg, target: linkTarget, className: "button"}, "E", h("u", {}, "x"), "plore API"),
-            // Workaround for in Lightning the link to Setup always opens a new tab, and the link back cannot open a new tab.
-            inLightning && isInSetup && h("a", {ref: "homeBtn", href: `https://${sfHost}/lightning/page/home`, title: "You can choose if you want to open in a new tab or not", target: linkTarget, className: "button"}, "Salesforce ", h("u", {}, "H"), "ome"),
-            inLightning && !isInSetup && h("a", {ref: "homeBtn", href: `https://${sfHost}/lightning/setup/SetupOneHome/home?setupApp=all`, title: "You can choose if you want to open in a new tab or not", target: linkTarget, className: "button"}, "Setup ", h("u", {}, "H"), "ome"),
+        h("div", {className: "popup-content"},
+          h("div", {className: "action-buttons"},
+            h("a", {ref: "dataExportBtn", href: "data-export.html?" + hostArg, target: linkTarget, className: "button"}, 
+              "Data ", h("u", {}, "E"), "xport"
+            ),
+            h("a", {ref: "dataImportBtn", href: "data-import.html?" + hostArg, target: linkTarget, className: "button"}, 
+              "Data ", h("u", {}, "I"), "mport"
+            ),
+            h("a", {ref: "limitsBtn", href: "limits.html?" + hostArg, target: linkTarget, className: "button"}, 
+              h("u", {}, "L"), "imits"
+            ),
+            h("a", {ref: "metaRetrieveBtn", href: "metadata-retrieve.html?" + hostArg, target: linkTarget, className: "button"}, 
+              "Meta", h("u", {}, "d"), "ata Download"
+            ),
+            h("a", {ref: "apiExploreBtn", href: "api-explorer.html?" + hostArg, target: linkTarget, className: "button"}, 
+              "E", h("u", {}, "x"), "plore API"
+            ),
+            !isInSetup && h("a", {
+              ref: "homeBtn",
+              href: `https://${sfHost}/home/home.jsp`,
+              title: "You can choose if you want to open in a new tab or not",
+              target: linkTarget,
+              className: "button"
+            }, "Salesforce ", h("u", {}, "H"), "ome"),
+            inLightning && !isInSetup && h("a", {
+              ref: "homeBtn",
+              href: `https://${sfHost}/lightning/setup/SetupOneHome/home?setupApp=all`,
+              title: "You can choose if you want to open in a new tab or not",
+              target: linkTarget,
+              className: "button"
+            }, "Setup ", h("u", {}, "H"), "ome")
           )
         ),
-        h("div", {className: "footer"},
-          h("div", {className: "meta"},
-            h("div", {className: "version"},
-              "(",
-              h("a", {href: "https://github.com/sorenkrabbe/Chrome-Salesforce-inspector/blob/master/CHANGES.md"}, "v" + addonVersion),
-              " / " + apiVersion + ")",
-            ),
-            h("div", {className: "tip"}, "[ctrl+alt+i] to open"),
-            h("a", {className: "about", href: "https://github.com/sorenkrabbe/Chrome-Salesforce-inspector", target: linkTarget}, "About")
-          ),
+        h("div", {className: "copyright"},
+          "© 2025 Sam Schröder based on Salesforce Inspector"
         )
       )
     );
@@ -237,6 +266,9 @@ class AllDataBox extends React.PureComponent {
   }
 
   onAspectClick(e) {
+    if (this.props.onAspectChange) {
+      this.props.onAspectChange(e.currentTarget.dataset.aspect);
+    }
     this.setState({
       activeSearchAspect: e.currentTarget.dataset.aspect
     });
@@ -1239,3 +1271,280 @@ function sfLocaleKeyToCountryCode(localeKey) {
 }
 
 window.getRecordId = getRecordId; // for unit tests
+
+// New component for comparison view
+class CompareView extends React.PureComponent {
+  renderRecordData(data) {
+    if (!data) return null;
+    
+    return h("table", {className: "compare-table"},
+      h("tbody", {},
+        Object.entries(data).map(([field, value]) => {
+          // Skip internal fields
+          if (field === "attributes" || typeof value === 'object') return null;
+          
+          const isDifferent = String(this.props.originalData[field]) !== String(this.props.compareData[field]);
+          
+          return h("tr", {
+            key: field,
+            className: isDifferent ? "diff-highlight" : ""
+          },
+            h("th", {}, field),
+            h("td", {}, String(value))
+          );
+        })
+      )
+    );
+  }
+
+  render() {
+    const { originalData, compareData } = this.props;
+    
+    return h("div", {className: "compare-container"},
+      h("div", {className: "compare-side original"},
+        h("h3", {}, "Original Record"),
+        this.renderRecordData(originalData)
+      ),
+      h("div", {className: "compare-side comparison"},
+        h("h3", {}, "Comparison Record"),
+        this.renderRecordData(compareData)
+      )
+    );
+  }
+}
+
+class CompareDataBox extends React.PureComponent {
+  constructor(props) {
+    super(props);
+    this.state = {
+      recordId: null,
+      recordData: null,
+      compareId: '',
+      objectType: null,
+      compareObjectType: null,
+      loading: false,
+      error: null,
+      useCustomObject: false,
+      globalDescribe: null
+    };
+    this.handleCompareIdChange = this.handleCompareIdChange.bind(this);
+    this.handleCompare = this.handleCompare.bind(this);
+    this.handleObjectSelect = this.handleObjectSelect.bind(this);
+    this.toggleCustomObject = this.toggleCustomObject.bind(this);
+  }
+
+  componentDidMount() {
+    this.updateRecordId();
+    // Fetch global describe for object lookup
+    sfConn.rest("/services/data/v" + apiVersion + "/sobjects/")
+      .then(globalDescribe => {
+        this.setState({ globalDescribe });
+      });
+  }
+
+  componentDidUpdate(prevProps) {
+    if (prevProps.contextUrl !== this.props.contextUrl) {
+      this.updateRecordId();
+    }
+  }
+
+  updateRecordId() {
+    const { contextUrl } = this.props;
+    if (contextUrl) {
+      const recordId = getRecordId(contextUrl);
+      if (recordId && recordId !== this.state.recordId) {
+        this.setState({ recordId }, () => this.loadRecordData());
+      }
+    }
+  }
+
+  async loadRecordData() {
+    const { recordId } = this.state;
+    if (!recordId) return;
+
+    this.setState({ loading: true });
+    try {
+      // First get the object type from the ID prefix
+      const objectType = recordId.substring(0, 3);
+      // Query to get the object name from prefix
+      const describeResult = await sfConn.rest("/services/data/v" + apiVersion + "/sobjects/");
+      const objectInfo = describeResult.sobjects.find(obj => obj.keyPrefix === objectType);
+      
+      if (!objectInfo) {
+        throw new Error("Could not determine object type");
+      }
+      
+      // Now fetch the record data
+      const data = await sfConn.rest(`/services/data/v${apiVersion}/sobjects/${objectInfo.name}/${recordId}`);
+      this.setState({
+        recordData: data,
+        objectType: objectInfo.name,
+        loading: false
+      });
+    } catch (error) {
+      this.setState({ error: error.message, loading: false });
+    }
+  }
+
+  handleCompareIdChange(e) {
+    this.setState({ compareId: e.target.value });
+  }
+
+  handleCompare() {
+    const { sfHost } = this.props;
+    const { recordId, compareId, objectType, compareObjectType, useCustomObject } = this.state;
+    
+    if (compareId && recordId) {
+      const targetObjectType = useCustomObject ? compareObjectType : objectType;
+      
+      // Validate both IDs and object types are present
+      if (!targetObjectType) {
+        this.setState({ error: "Please select an object type" });
+        return;
+      }
+
+      window.open(
+        `inspect.html?host=${sfHost}&mode=compare` +
+        `&recordId=${recordId}` +
+        `&compareId=${compareId}` +
+        `&objectType=${objectType}` +
+        `&compareObjectType=${targetObjectType}`,
+        '_blank'
+      );
+    }
+  }
+
+  handleObjectSelect(value) {
+    if (value && value.sobject) {
+      this.setState({ compareObjectType: value.sobject.name });
+    }
+  }
+
+  toggleCustomObject() {
+    this.setState(state => ({ 
+      useCustomObject: !state.useCustomObject,
+      compareObjectType: null
+    }));
+  }
+
+  render() {
+    const { 
+      recordId, 
+      recordData, 
+      compareId, 
+      loading, 
+      error, 
+      useCustomObject, 
+      compareObjectType,
+      objectType,
+      globalDescribe 
+    } = this.state;
+
+    // Find the selected object details if one is selected
+    const selectedObject = compareObjectType && globalDescribe?.sobjects.find(obj => obj.name === compareObjectType);
+
+    if (!recordId) {
+      return h("div", { className: "compare-box empty" },
+        "Open a record to enable comparison"
+      );
+    }
+
+    return h("div", { className: "compare-box" },
+      h("div", { className: "compare-header" },
+        h("h3", {}, "Compare Records"),
+        recordData && h("div", { className: "compare-info" },
+          "Current Record: ", recordData.attributes.type, " / ", recordId
+        ),
+        error && h("div", { className: "error-message" }, error)
+      ),
+      h("div", { className: "compare-controls" },
+        h("div", { className: "compare-control-row" },
+          h("input", {
+            type: "text",
+            placeholder: "Enter Record ID to compare",
+            value: compareId,
+            onChange: this.handleCompareIdChange,
+            className: "compare-input"
+          }),
+          h("label", { className: "compare-checkbox-label" },
+            h("input", {
+              type: "checkbox",
+              checked: useCustomObject,
+              onChange: this.toggleCustomObject,
+              className: "compare-checkbox"
+            }),
+            "Compare with different object"
+          )
+        ),
+        useCustomObject && h("div", { className: "compare-control-row" },
+          selectedObject 
+            ? h("div", { className: "selected-object" },
+                h("div", { className: "selected-object-name" }, selectedObject.name),
+                h("div", { className: "selected-object-label" }, selectedObject.label),
+                h("button", {
+                  onClick: () => this.setState({ compareObjectType: null }),
+                  className: "selected-object-clear"
+                }, "×")
+              )
+            : h(AllDataSearch, {
+                getMatches: query => {
+                  if (!globalDescribe) return [];
+                  return this.getObjectMatches(query, globalDescribe.sobjects);
+                },
+                onDataSelect: this.handleObjectSelect,
+                inputSearchDelay: 0,
+                placeholderText: "Search for object",
+                resultRender: this.renderObjectResults
+              })
+        ),
+        h("button", {
+          onClick: this.handleCompare,
+          className: "compare-button",
+          disabled: !compareId || (useCustomObject && !compareObjectType)
+        }, "Compare")
+      )
+    );
+  }
+
+  getObjectMatches(query, sobjects) {
+    if (!query) return [];
+    query = query.toLowerCase();
+    return sobjects
+      .filter(sobject => 
+        sobject.name.toLowerCase().includes(query) || 
+        sobject.label.toLowerCase().includes(query))
+      .map(sobject => ({
+        sobject,
+        relevance: 
+          sobject.name.toLowerCase() === query ? 1 :
+          sobject.label.toLowerCase() === query ? 2 :
+          sobject.name.toLowerCase().startsWith(query) ? 3 :
+          sobject.label.toLowerCase().startsWith(query) ? 4 : 5
+      }))
+      .sort((a, b) => a.relevance - b.relevance)
+      .slice(0, 5);
+  }
+
+  renderObjectResults(matches, userQuery) {
+    return matches.map(value => ({
+      key: value.sobject.name,
+      value,
+      element: [
+        h("div", { className: "autocomplete-item-main" },
+          h(MarkSubstring, {
+            text: value.sobject.name,
+            start: value.sobject.name.toLowerCase().indexOf(userQuery.toLowerCase()),
+            length: userQuery.length
+          })
+        ),
+        h("div", { className: "autocomplete-item-sub" },
+          h(MarkSubstring, {
+            text: value.sobject.label,
+            start: value.sobject.label.toLowerCase().indexOf(userQuery.toLowerCase()),
+            length: userQuery.length
+          })
+        )
+      ]
+    }));
+  }
+}

@@ -1,51 +1,68 @@
 #insext {
     z-index: 1000;
-    display: block;
     position: fixed;
-    top: 122px;
-    right: 0;
-    vertical-align: middle;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none; /* Allow clicks to pass through when inactive */
 }
+
+#insext.insext-active {
+    pointer-events: all; /* Capture clicks when active */
+}
+
 #insext .insext-popup {
     box-sizing: border-box;
-    width: 280px;
-    height: 430px;
-    position:absolute;
-    background-color: #ffffff;
+    width: 100%;
+    height: 100%;
+    position: fixed;
+    background: transparent;
+    left: 0;
+    top: 0;
     right: 0;
-    border-radius: 4px;
-    border-top-right-radius: 0;
-    z-index: 1;
-    box-shadow: 0 -2px 2px 0 rgba(0,0,0,.16);
-    border: 1px solid #d8dde6;
+    border: none;
+    box-shadow: none;
     display: none;
 }
-#insext.insext-active .insext-popup {
-    display: block;
-}
+
 #insext .insext-btn {
+    position: fixed;
+    right: 0;
+    top: 122px;
+    pointer-events: all; /* Always clickable */
     box-sizing: border-box;
-    width: 15px;
-    height: 33px;
-    padding: 3px 1px 2px 0;
-    background-color: #226b86;
-    border-width: 4px;
-    border-style: solid;
-    border-right-style: none;
-    border-color: #fff;
-    border-top-left-radius: 5px;
-    border-bottom-left-radius: 5px;
-    box-shadow: -2px 0 2px #a0a6ab;
-    opacity: .4;
+    width: 40px;
+    height: 40px;
+    padding: 8px;
+    background-color: #0070d2;
+    border: none;
+    border-radius: 8px 0 0 8px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+    opacity: 0.9;
+    z-index: 1001;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
+
 #insext .insext-btn:hover,
 #insext.insext-active .insext-btn {
     opacity: 1;
-    width: 20px; 
+    width: 44px;
+    background-color: #005fb2;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
 }
-#insext .insext-btn img {
-    box-sizing: border-box;
-    width: 10px;
-    height: 15px;
-    margin: 2px;
+
+#insext .insext-btn svg {
+    width: 20px;
+    height: 20px;
+    color: white; /* This works with currentColor in the SVG */
+    transition: transform 0.2s ease;
+}
+
+#insext .insext-btn:hover svg {
+    transform: scale(1.1);
 }

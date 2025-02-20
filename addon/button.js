@@ -24,70 +24,84 @@ function initButton(sfHost, inInspector) {
   btn.accessKey = "i";
   btn.title = "Show Salesforce details (Alt+I / Shift+Alt+I)";
   rootEl.appendChild(btn);
-  let img = document.createElement("img");
-  img.src = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAoAAAAPCAYAAADd/14OAAAA40lEQVQoz2P4//8/AzpWzGj6L59U/V8urgxMg/g4FUn6J/+X9E38LxWc8V8htR67IpCkuGfMfxCQjSpENRFFkXvk/1+/foGxQloDSD0DVkVfvnyBY7hCdEVv3rxBwXCFIIdKh2WDFT1+/BgDo1qd2fL/1q1bWDFcoW5xz3/Xppn/oycu/X/x4kUMDFeoWdD136R8wn+f9rlgxSdOnEDBKFajK96/fz8coyjEpnj79u1gjKEQXXFE/+L/Gzdu/G9WMfG/am4HZlzDFAf3LPwfOWEJWBPIwwzYUg9MsXXNFDAN4gMAmASShdkS4AcAAAAASUVORK5CYII=";
-  btn.appendChild(img);
+
+  // Create SVG with flash icon
+  let svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("fill", "none");
+  svg.setAttribute("stroke", "currentColor");
+  svg.setAttribute("stroke-width", "2");
+  svg.setAttribute("stroke-linecap", "round");
+  svg.setAttribute("stroke-linejoin", "round");
+  
+  let path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  path.setAttribute("d", "M13 2L3 14h9l-1 8 10-12h-9l1-8z");
+  
+  svg.appendChild(path);
+  btn.appendChild(svg);
+
   document.body.appendChild(rootEl);
-  btn.addEventListener("click", function clickListener() {
-    btn.removeEventListener("click", clickListener);
-    loadPopup();
+
+  let popupEl;
+
+  btn.addEventListener("click", function() {
+    if (!rootEl.classList.contains("insext-active")) {
+      if (!popupEl) {
+        // First time opening
+        popupEl = document.createElement("iframe");
+        popupEl.className = "insext-popup";
+        popupEl.src = chrome.extension.getURL("popup.html");
+        rootEl.appendChild(popupEl);
+
+        addEventListener("message", handleMessage);
+      }
+      openPopup();
+    } else {
+      closePopup();
+    }
   });
 
-  function loadPopup() {
-    btn.addEventListener("click", () => {
-      if (!rootEl.classList.contains("insext-active")) {
-        openPopup();
-      } else {
-        closePopup();
-      }
-    });
-
-    let popupSrc = chrome.extension.getURL("popup.html");
-    let popupEl = document.createElement("iframe");
-    popupEl.className = "insext-popup";
-    popupEl.src = popupSrc;
-    addEventListener("message", e => {
-      if (e.source != popupEl.contentWindow) {
-        return;
-      }
-      if (e.data.insextInitRequest) {
-        popupEl.contentWindow.postMessage({
-          insextInitResponse: true,
-          sfHost,
-          inDevConsole: !!document.querySelector("body.ApexCSIPage"),
-          inLightning: !!document.querySelector("#auraLoadingBox"),
-          inInspector,
-        }, "*");
-      }
-      if (e.data.insextLoaded) {
-        openPopup();
-      }
-      if (e.data.insextClosePopup) {
-        closePopup();
-      }
-      if (e.data.insextShowStdPageDetails) {
-        showStdPageDetails(e.data.insextData, e.data.insextAllFieldSetupLinks);
-      }
-    });
-    rootEl.appendChild(popupEl);
-    function openPopup() {
-      popupEl.contentWindow.postMessage({insextUpdateRecordId: true, locationHref: location.href}, "*");
-      rootEl.classList.add("insext-active");
-      // These event listeners are only enabled when the popup is active to avoid interfering with Salesforce when not using the inspector
-      addEventListener("click", outsidePopupClick);
-      popupEl.focus();
+  function handleMessage(e) {
+    if (e.source != popupEl?.contentWindow) {
+      return;
     }
-    function closePopup() {
-      rootEl.classList.remove("insext-active");
-      removeEventListener("click", outsidePopupClick);
-      popupEl.blur();
+    if (e.data.insextInitRequest) {
+      popupEl.contentWindow.postMessage({
+        insextInitResponse: true,
+        sfHost,
+        inDevConsole: !!document.querySelector("body.ApexCSIPage"),
+        inLightning: !!document.querySelector("#auraLoadingBox"),
+        inInspector,
+      }, "*");
     }
-    function outsidePopupClick(e) {
-      // Close the popup when clicking outside it
-      if (!rootEl.contains(e.target)) {
-        closePopup();
-      }
+    if (e.data.insextLoaded) {
+      openPopup();
+    }
+    if (e.data.insextClosePopup) {
+      closePopup();
+    }
+    if (e.data.insextShowStdPageDetails) {
+      showStdPageDetails(e.data.insextData, e.data.insextAllFieldSetupLinks);
     }
   }
 
+  function openPopup() {
+    rootEl.classList.add("insext-active");
+    if (popupEl) {
+      popupEl.contentWindow.postMessage({
+        insextUpdateRecordId: true,
+        locationHref: location.href
+      }, "*");
+      popupEl.style.display = "block";
+      document.body.style.overflow = "hidden"; // Prevent background scroll
+    }
+  }
+
+  function closePopup() {
+    rootEl.classList.remove("insext-active");
+    if (popupEl) {
+      popupEl.style.display = "none";
+      document.body.style.overflow = ""; // Restore scroll
+    }
+  }
 }
