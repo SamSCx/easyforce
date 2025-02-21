@@ -173,7 +173,18 @@ class App extends React.PureComponent {
               title: "You can choose if you want to open in a new tab or not",
               target: linkTarget,
               className: "button"
-            }, "Setup ", h("u", {}, "H"), "ome")
+            }, "Setup ", h("u", {}, "H"), "ome"),
+            h("a", {
+              ref: "modernDataExportBtn",
+              href: "modern-data-export.html?" + hostArg,
+              target: linkTarget,
+              className: "button modern"
+            }, 
+              h("span", { className: "button-icon" }, "📊"),
+              h("span", { className: "button-content" },
+                "Modern Data ", h("u", {}, "E"), "xport"
+              )
+            )
           )
         ),
         h("div", {className: "copyright"},
